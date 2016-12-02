@@ -88,8 +88,17 @@ def main():
     overlay_directories([original_input, user_input], destination)
 
     for test in get_tests(destination / pathlib.Path('protocols')):
-        print(test)
-        run_protocol(test, './test.sh')
+        print(test, end=' ')
+        try:
+            status = run_protocol(test, './test.sh')
+        except Exception as e:
+            print('[EXCEPTION]')
+            print(e)
+        else:
+            if status != 0:
+                print('[ERROR]')
+            else:
+                print('[FINISH]')  # Finished, but how is the result?
 
 
 if __name__ == '__main__':
