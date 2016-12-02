@@ -3,6 +3,8 @@
 import pathlib
 import collections
 import shutil
+import contextlib
+import subprocess
 
 
 def overlay_directories(sources, destination):
@@ -16,9 +18,9 @@ def overlay_directories(sources, destination):
         A list of the source directories to copy. The directories are copied
         in order so the version in the latest path is kept.
     destination: path
-        The path where to place the copy. If the directory already exists, the
-        sources are copied in the destination. If the directory does not exist,
-        it is created and the sources are copied as the destination.
+        The path where to place the copy. If the directory already exists,
+        the sources are copied in the destination. If the directory does not
+        exist, it is created and the sources are copied as the destination.
     """
     # Convert arguments to pathlib.Path object for easier manipulation.
     sources = [pathlib.Path(path) for path in sources]
@@ -67,3 +69,28 @@ def overlay_directories(sources, destination):
             shutil.copy(str(origin), str(full_dest))
 
 
+def get_tests(root):
+    """
+    Generate a list of directories containing test protocols
+    """
+    return (path.parent for path in pathlib.Path(root).glob('**/meta.ini'))
+
+
+def run_protocol(root, script):
+    process = subprocess.Popen(script, cwd=str(root.absolute()))
+    return process.wait()
+
+
+def main():
+    original_input = './'
+    user_input = '../test_aa/overlay2/'
+    destination = '../test_aa/dest/'
+    overlay_directories([original_input, user_input], destination)
+
+    for test in get_tests(destination / pathlib.Path('protocols')):
+        print(test)
+        run_protocol(test, './test.sh')
+
+
+if __name__ == '__main__':
+    main()
