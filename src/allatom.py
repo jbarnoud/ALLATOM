@@ -3,11 +3,35 @@
 import pathlib
 import collections
 import shutil
-import contextlib
 import subprocess
+import logging
 
 
-def overlay_directories(sources, destination):
+def should_ignore(path, ignore):
+    """
+    Return True is the path contains one of the motifs to ignore.
+
+    The motifs in *ignore* are matched exactly as strings.
+
+    Parameters
+    ----------
+    path: str or pathlib.Path
+        Path to test againgst the motifs.
+    ignore: list of strings
+        List of motifs to test.
+
+    Returns
+    -------
+    bool
+        True is the path contains at least one of the motifs
+        and should be ignored.
+    """
+    for token in ignore:
+        if token in str(path):
+            return True
+    return False
+
+def overlay_directories(sources, destination, ignore=[]):
     """
     Copy an overlayed version of a collection of directories
 
@@ -49,7 +73,9 @@ def overlay_directories(sources, destination):
     for path in sources:
         files.update(
             collections.OrderedDict(
-                [(p.relative_to(path), p) for p in path.glob('**/*')]
+                [(p.relative_to(path), p)
+                 for p in path.glob('**/*')
+                 if not should_ignore(p, ignore)]
             )
         )
 
@@ -76,21 +102,48 @@ def get_tests(root):
     return (path.parent for path in pathlib.Path(root).glob('**/meta.ini'))
 
 
-def run_protocol(root, script):
-    process = subprocess.Popen(script, cwd=str(root.absolute()))
-    return process.wait()
+def run_protocol(root, script, log_directory=None):
+    # Decide where to log data 
+    root = pathlib.Path(root)
+    if log_directory is None:
+        log_directory = root / pathlib.Path(log_directory)
+    # Actually run the protocol
+    process = subprocess.Popen(
+        script,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=str(root.absolute()))
+    with process:
+        # This aims at logging stdout and stderr.
+        # Ideally, each line is logged separatelly with a record of the
+        # time and the source (out or err). This allows neat outputs latter on.
+        # The current code does not work as intended, but is left to be
+        # fixed latter. Yes, that is awesome programming practice.
+        # TODO: Fix logging of subprocesses.
+        logging.info(process.stdout.read())
+        logging.error(process.stderr.read())
+    exit_code = process.wait()
+    # Log the exit code
+    exit_code_file = log_directory / pathlib.Path('EXIT_CODE')
+    with open(str(exit_code_file), 'w') as outfile:
+        print(exit_code, file=outfile)
+    
+    return exit_code
 
 
 def main():
     original_input = './'
     user_input = '../test_aa/overlay2/'
     destination = '../test_aa/dest/'
-    overlay_directories([original_input, user_input], destination)
+    overlay_directories(
+        [original_input, user_input], destination, ignore=['.git', ]
+    )
 
     for test in get_tests(destination / pathlib.Path('protocols')):
         print(test, end=' ')
+        script =  './test.sh'
         try:
-            status = run_protocol(test, './test.sh')
+            status = run_protocol(test, script)
         except Exception as e:
             print('[EXCEPTION]')
             print(e)
