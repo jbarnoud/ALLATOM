@@ -5,6 +5,7 @@ import collections
 import shutil
 import subprocess
 import logging
+import traceback
 
 
 def should_ignore(path, ignore):
@@ -30,6 +31,7 @@ def should_ignore(path, ignore):
         if token in str(path):
             return True
     return False
+
 
 def overlay_directories(sources, destination, ignore=[]):
     """
@@ -106,7 +108,14 @@ def run_protocol(root, script, log_directory=None):
     # Decide where to log data 
     root = pathlib.Path(root)
     if log_directory is None:
-        log_directory = root / pathlib.Path(log_directory)
+        log_directory = root / pathlib.Path('LOGS')
+    else:
+        log_directory = pathlib.Path(log_directory)
+    if not log_directory.exists():
+        log_directory.mkdir(parents=True)
+    elif not log_directory.is_dir():
+        raise NotADirectoryError('Logging directory ({}) is not a directory.'
+                                 .format(log_directory))
     # Actually run the protocol
     process = subprocess.Popen(
         script,
@@ -146,7 +155,7 @@ def main():
             status = run_protocol(test, script)
         except Exception as e:
             print('[EXCEPTION]')
-            print(e)
+            traceback.print_tb(e)
         else:
             if status != 0:
                 print('[ERROR]')
