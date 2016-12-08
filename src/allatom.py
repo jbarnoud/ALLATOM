@@ -6,10 +6,7 @@ import shutil
 import subprocess
 import logging
 import traceback
-
-
-class ProtocolNotRunError(Exception):
-    pass
+import configparser
 
 
 class Protocol(object):
@@ -34,7 +31,9 @@ class Protocol(object):
             self._root = root.parent
 
     def _parse_meta(self, meta_path):
-        pass
+        self._meta = configparser.ConfigParser()
+        self._meta['Protocol'] = {}
+        self._meta.read(str(meta_path))
 
     def run(self, force=False):
         if force or self.exit_code is None:
@@ -46,7 +45,7 @@ class Protocol(object):
 
     @property
     def name(self):
-        return str(self.root)
+        return self._meta['Protocol'].get('name', str(self.root))
 
     @property
     def root(self):
@@ -54,7 +53,7 @@ class Protocol(object):
 
     @property
     def script(self):
-        return './test.sh'
+        return self._meta['Protocol'].get('script', './test.sh')
 
     @property
     def log_directory(self):
