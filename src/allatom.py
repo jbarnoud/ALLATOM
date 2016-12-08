@@ -17,6 +17,30 @@ class Protocol(object):
         self._exit_code = None
 
     def _set_root_and_meta(self, root):
+        """
+        Figure out what the root directory and the metadata file are.
+
+        A Prococol instance can be created from the path of a metadata file
+        or from the path of a directory containing a metadata file. In the
+        former case, the root directory is considered to be the parent
+        directory of the metadata file. In the latter case, the provided
+        directory is considered the root directory, and the metadata file is
+        searched in the directory.
+
+        The method set `self._root` and `self._meta_path` regardless of their
+        previous values if any.
+
+        Parameters
+        ----------
+        root: path (str or pathlib.Path)
+            Path to the root directory or the metadata file.
+
+        Raises
+        ------
+        FileNotFoundError
+            The provided path does not exist, or no metadata file could be
+            found.
+        """
         root = pathlib.Path(root)
         if not root.exists():
             raise FileNotFoundError('{} not found.'.format(str(root)))
@@ -31,11 +55,34 @@ class Protocol(object):
             self._root = root.parent
 
     def _parse_meta(self, meta_path):
+        """
+        Read the metadata file
+
+        Parameters
+        ----------
+        meta_path: path (str or pathlib.Path)
+            Path to the metadata file.
+        """
         self._meta = configparser.ConfigParser()
         self._meta['Protocol'] = {}
         self._meta.read(str(meta_path))
 
     def run(self, force=False):
+        """
+        Execute the protocol script
+
+        The protocol script is executed only if it did not run already, i.e. if
+        the exit code is not already available. The execution can be force by
+        setting the *force* argument to `True`.
+
+        The exit code is recorded in the EXIT_CODE file.
+
+        Parameters
+        ----------
+        force: bool
+            If `True`, the protocol is executed even if it got executed
+            previously already.
+        """
         if force or self.exit_code is None:
             self._exit_code = run_protocol(
                 self.root,
@@ -45,26 +92,63 @@ class Protocol(object):
 
     @property
     def name(self):
+        """
+        Name of the protocol
+
+        The name is read in the metadata file if possible. If not, then
+        the path to the root directory is returned instead.
+        """
         return self._meta['Protocol'].get('name', str(self.root))
 
     @property
     def root(self):
+        """
+        Root directory for the protocol
+        """
         return self._root
 
     @property
     def script(self):
+        """
+        Script to run the protocol
+
+        The script is either a program available in the search PATH or
+        the path to a script. In the latter case, the path is ideally gave
+        relative to the protocol root directory.
+
+        The script is read from the matadata file if provided. Else, the
+        default value './test.sh' is returned.
+        """
         return self._meta['Protocol'].get('script', './test.sh')
 
     @property
     def log_directory(self):
+        """
+        Path to the directory where to store logs.
+        """
         return self.root / pathlib.Path('LOGS')
 
     @property
     def exit_code_path(self):
+        """
+        Path to the file that records the exit code
+        """
         return self.log_directory / pathlib.Path('EXIT_CODE')
 
     @property
     def exit_code(self):
+        """
+        Exit code for the protocol run.
+
+        The exit code is an integer returned by the protocol script. It is
+        assumed to be 0 if the script finished as expected. Non 0 values are
+        expected to signal errors. If the protocol did not run yet, then the
+        exit code is `None`.
+
+        If the protocol was run by the current instance, then the exit code
+        returned is the one saved as the run finished. Else, the exit code
+        is read from the disk in the `EXIT_CODE` file.
+        """
         # If exit code is known already, then just returns it.
         if self._exit_code is not None:
             return self._exit_code
@@ -169,14 +253,14 @@ def overlay_directories(sources, destination, ignore=[]):
 
 def get_tests(root):
     """
-    Generate a list of directories containing test protocols
+    Iterate over the Protocol instances for all the found protocols.
     """
     #return (path.parent for path in pathlib.Path(root).glob('**/meta.ini'))
     return (Protocol(path) for path in pathlib.Path(root).glob('**/meta.ini'))
 
 
 def run_protocol(root, script, log_directory=None):
-    # Decide where to log data 
+    # Decide where to log data
     root = pathlib.Path(root)
     if log_directory is None:
         log_directory = root / pathlib.Path('LOGS')
@@ -207,7 +291,7 @@ def run_protocol(root, script, log_directory=None):
     exit_code_file = log_directory / pathlib.Path('EXIT_CODE')
     with open(str(exit_code_file), 'w') as outfile:
         print(exit_code, file=outfile)
-    
+
     return exit_code
 
 
