@@ -9,6 +9,10 @@ import traceback
 import configparser
 
 
+# The directory of this program source code
+SRC_DIR = pathlib.Path(__file__).parent.absolute()
+
+
 class Protocol(object):
     def __init__(self, root):
         self._set_root_and_meta(root)
@@ -63,8 +67,9 @@ class Protocol(object):
         meta_path: path (str or pathlib.Path)
             Path to the metadata file.
         """
+        default_path = SRC_DIR / pathlib.Path('meta_default.ini')
         self._meta = configparser.ConfigParser()
-        self._meta['Protocol'] = {}
+        self._meta.read(str(default_path))
         self._meta.read(str(meta_path))
 
     def run(self, force=False):
@@ -119,7 +124,7 @@ class Protocol(object):
         The script is read from the matadata file if provided. Else, the
         default value './test.sh' is returned.
         """
-        return self._meta['Protocol'].get('script', './test.sh')
+        return self._meta['Protocol']['script']
 
     @property
     def log_directory(self):
