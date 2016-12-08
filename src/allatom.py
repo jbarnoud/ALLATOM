@@ -8,6 +8,77 @@ import logging
 import traceback
 
 
+class ProtocolNotRunError(Exception):
+    pass
+
+
+class Protocol(object):
+    def __init__(self, root):
+        self._set_root_and_meta(root)
+        self._parse_meta(self._meta_path)
+        # Set empty values for private attributes
+        self._exit_code = None
+
+    def _set_root_and_meta(self, root):
+        root = pathlib.Path(root)
+        if not root.exists():
+            raise FileNotFoundError('{} not found.'.format(str(root)))
+        if root.is_dir():
+            meta_path = root / pathlib.Path('meta.ini')
+            if not meta_path.exists():
+                raise FileNotFoundError('{} not found.'.format(str(meta_path)))
+            self._meta_path = meta_path
+            self._root = root
+        else:
+            self._meta_path = root
+            self._root = root.parent
+
+    def _parse_meta(self, meta_path):
+        pass
+
+    def run(self, force=False):
+        if force or self.exit_code is None:
+            self._exit_code = run_protocol(
+                self.root,
+                self.script,
+                self.log_directory
+            )
+
+    @property
+    def name(self):
+        return str(self.root)
+
+    @property
+    def root(self):
+        return self._root
+
+    @property
+    def script(self):
+        return './test.sh'
+
+    @property
+    def log_directory(self):
+        return self.root / pathlib.Path('LOGS')
+
+    @property
+    def exit_code_path(self):
+        return self.log_directory / pathlib.Path('EXIT_CODE')
+
+    @property
+    def exit_code(self):
+        # If exit code is known already, then just returns it.
+        if self._exit_code is not None:
+            return self._exit_code
+        # If the protocol got run before, then read the logged exit code.
+        # If not, then the protocol did not ran yet, and we return None.
+        try:
+            with open(str(self.exit_code_path)) as infile:
+                self._exit_code = int(infile.read())
+            return self._exit_code
+        except FileNotFoundError:
+            return None
+
+
 def should_ignore(path, ignore):
     """
     Return True is the path contains one of the motifs to ignore.
@@ -101,7 +172,8 @@ def get_tests(root):
     """
     Generate a list of directories containing test protocols
     """
-    return (path.parent for path in pathlib.Path(root).glob('**/meta.ini'))
+    #return (path.parent for path in pathlib.Path(root).glob('**/meta.ini'))
+    return (Protocol(path) for path in pathlib.Path(root).glob('**/meta.ini'))
 
 
 def run_protocol(root, script, log_directory=None):
@@ -149,15 +221,14 @@ def main():
     )
 
     for test in get_tests(destination / pathlib.Path('protocols')):
-        print(test, end=' ')
-        script =  './test.sh'
+        print(test.name, end=' ')
         try:
-            status = run_protocol(test, script)
+            test.run()
         except Exception as e:
             print('[EXCEPTION]')
             traceback.print_tb(e)
         else:
-            if status != 0:
+            if test.exit_code != 0:
                 print('[ERROR]')
             else:
                 print('[FINISH]')  # Finished, but how is the result?
