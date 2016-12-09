@@ -142,14 +142,14 @@ class Protocol(object):
         """
         Path to the standard output log of the protocol execution.
         """
-        return self.log_directory / path.Path('stdout.log')
+        return self.log_directory / pathlib.Path('stdout.log')
 
     @property
     def stderr_path(self):
         """
         Path to the standard error log of the protocol execution.
         """
-        return self.log_directory / path.Path('stderr.log')
+        return self.log_directory / pathlib.Path('stderr.log')
 
     @property
     def exit_code_path(self):
@@ -345,6 +345,49 @@ def run_protocol(root, script, log_directory=None):
     return exit_code
 
 
+def report_txt(root):
+    failed = []
+    errored = []
+    ntests = 0
+    nrun = 0
+    nsuccess = 0
+    ntotal = 0
+    for protocol in get_tests(root):
+        ntotal += 1
+        if protocol.exit_code is None:
+            status = '[SKIPPED]'
+        elif protocol.exit_code != 0:
+            status = '[ERROR]'
+            errored.append(protocol)
+        elif protocol.success_code is None:
+            status = '[UNKNOWN]'
+            nrun += 1
+        elif protocol.success_code != 0:
+            status = '[FAILED]'
+            nrun += 1
+            failed.append(protocol)
+        else:
+            status = '[SUCCESS]'
+            nrun += 1
+            nsuccess += 1
+        print(protocol.name, status)
+
+    print('\n==== {} tests failed ===='.format(len(failed)))
+    for protocol in failed:
+        print('###', protocol.name, 'STDERR')
+        for line in protocol.stderr:
+            print(line, end='')
+
+    print('\n==== {} tests errored ===='.format(len(errored)))
+    for protocol in errored:
+        print('###', protocol.name, 'STDERR')
+        for line in protocol.stderr:
+            print(line, end='')
+
+    print('{} protocols run over {} protocols available.'.format(nrun, ntotal))
+    print('{} protocols succeeded.'.format(nsuccess))
+    
+
 def main():
     original_input = './'
     user_input = '../test_aa/overlay2/'
@@ -353,7 +396,8 @@ def main():
         [original_input, user_input], destination, ignore=['.git', ]
     )
 
-    for test in get_tests(destination / pathlib.Path('protocols')):
+    protocols_path = destination / pathlib.Path('protocols')
+    for test in get_tests(protocols_path):
         print(test.name, end=' ')
         try:
             test.run()
@@ -369,6 +413,8 @@ def main():
                 print('[FAILURE]')
             else:
                 print('[SUCCESS]')
+
+    report_txt(protocols_path)
 
 
 if __name__ == '__main__':
