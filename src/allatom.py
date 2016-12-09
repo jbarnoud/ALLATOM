@@ -7,6 +7,7 @@ import subprocess
 import logging
 import traceback
 import configparser
+import io
 
 
 # The directory of this program source code
@@ -122,7 +123,7 @@ class Protocol(object):
         relative to the protocol root directory.
 
         The script is read from the matadata file if provided. Else, the
-        default value './test.sh' is returned.
+        default value defined in `meta_default.ini` is returned.
         """
         return self._meta['Protocol']['script']
 
@@ -277,21 +278,17 @@ def run_protocol(root, script, log_directory=None):
         raise NotADirectoryError('Logging directory ({}) is not a directory.'
                                  .format(log_directory))
     # Actually run the protocol
-    process = subprocess.Popen(
-        script,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        cwd=str(root.absolute()))
-    with process:
-        # This aims at logging stdout and stderr.
-        # Ideally, each line is logged separatelly with a record of the
-        # time and the source (out or err). This allows neat outputs latter on.
-        # The current code does not work as intended, but is left to be
-        # fixed latter. Yes, that is awesome programming practice.
-        # TODO: Fix logging of subprocesses.
-        logging.info(process.stdout.read())
-        logging.error(process.stderr.read())
-    exit_code = process.wait()
+    out_path = log_directory / pathlib.Path('stdout.log')
+    err_path = log_directory / pathlib.Path('stderr.log')
+    stdout = open(str(out_path), 'w')
+    stderr = open(str(err_path), 'w')
+    with stdout, stderr:
+        process = subprocess.Popen(
+            script,
+            stdout=stdout,
+            stderr=stderr,
+            cwd=str(root.absolute()))
+        exit_code = process.wait()
     # Log the exit code
     exit_code_file = log_directory / pathlib.Path('EXIT_CODE')
     with open(str(exit_code_file), 'w') as outfile:
