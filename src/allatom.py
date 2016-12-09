@@ -14,6 +14,10 @@ import io
 SRC_DIR = pathlib.Path(__file__).parent.absolute()
 
 
+class ProtocolNotRunError(Exception):
+    pass
+
+
 class Protocol(object):
     def __init__(self, root):
         self._set_root_and_meta(root)
@@ -135,6 +139,20 @@ class Protocol(object):
         return self.root / pathlib.Path('LOGS')
 
     @property
+    def stdout_path(self):
+        """
+        Path to the standard output log of the protocol execution.
+        """
+        return self.log_directory / path.Path('stdout.log')
+
+    @property
+    def stderr_path(self):
+        """
+        Path to the standard error log of the protocol execution.
+        """
+        return self.log_directory / path.Path('stderr.log')
+
+    @property
     def exit_code_path(self):
         """
         Path to the file that records the exit code
@@ -166,6 +184,22 @@ class Protocol(object):
             return self._exit_code
         except FileNotFoundError:
             return None
+
+    @property
+    def stdout(self):
+        try:
+            with open(str(self.stdout_path)) as infile:
+                yield from infile
+        except FileNotFoundError:
+            raise ProtocolNotRunError()
+
+    @property
+    def stderr(self):
+        try:
+            with open(str(self.stderr_path)) as infile:
+                yield from infile
+        except FileNotFoundError:
+            raise ProtocolNotRunError()
 
 
 def should_ignore(path, ignore):
@@ -261,7 +295,6 @@ def get_tests(root):
     """
     Iterate over the Protocol instances for all the found protocols.
     """
-    #return (path.parent for path in pathlib.Path(root).glob('**/meta.ini'))
     return (Protocol(path) for path in pathlib.Path(root).glob('**/meta.ini'))
 
 
