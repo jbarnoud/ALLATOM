@@ -185,6 +185,22 @@ class Protocol(object):
             return None
 
     @property
+    def success_code_path(self):
+        """
+        Path to the file that records the exit code
+        """
+        return self.log_directory / pathlib.Path('SUCCESS_CODE')
+
+    @property
+    def success_code(self):
+        try:
+            with open(str(self.success_code_path)) as infile:
+                code = int(infile.read())
+            return code
+        except FileNotFoundError:
+            return None
+
+    @property
     def stdout(self):
         try:
             with open(str(self.stdout_path)) as infile:
@@ -347,8 +363,12 @@ def main():
         else:
             if test.exit_code != 0:
                 print('[ERROR]')
+            elif test.success_code is None:
+                print('[NONE]')
+            elif test.success_code != 0:
+                print('[FAILURE]')
             else:
-                print('[FINISH]')  # Finished, but how is the result?
+                print('[SUCCESS]')
 
 
 if __name__ == '__main__':
