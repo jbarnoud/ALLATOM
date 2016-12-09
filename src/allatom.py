@@ -4,7 +4,6 @@ import pathlib
 import collections
 import shutil
 import subprocess
-import logging
 import traceback
 import configparser
 import io
@@ -136,7 +135,7 @@ class Protocol(object):
         """
         Path to the directory where to store logs.
         """
-        return self.root / pathlib.Path('LOGS')
+        return self.root / pathlib.Path(self._meta['Protocol']['log_dir'])
 
     @property
     def stdout_path(self):
