@@ -7,11 +7,48 @@ Warning: This repository is under heavy development. It does not work yet!
 * src: source code of the ALLATOM main program
 * library: library of function to factor common tasks in tests
 * inputs: input files shared among the tests
-* protocols: collection of tests 
+* protocols: collection of tests
 
-## What happens when we run the main program?
+## Get ALLATOM
 
-1. A copy of the ALLATOM directory is made, and the user structure is applied on top of it. This would be a good use of specialized file systems such as overlayfs or unionfs, yet using these files systems makes us very dependant on the user's configuration.
-2. The sanity of the resulting file tree is tested. Are all the needed file available? Are all the dependencies accessible? These tests allow to fail as early as possible if anything is missing.
-3. The run environment is setup. This mostly means setting up the environment variable for gromacs and other programs, and loading a virtualenv.
-4. List the tests in the `protocols` directory. Select the ones that fit the user's selection criteria.
+You can download the program using git:
+
+```bash
+git clone https://github.com/jbarnoud/ALLATOM.git
+```
+
+Or you can download a zip archive of the repository:
+<https://github.com/jbarnoud/ALLATOM/archive/master.zip>
+
+## Run ALLATOM
+
+Run the `allatom` script with the destination directory. For instance, assuming
+the current directory is the root of the repository:
+
+```bash
+./allatom ../destination
+```
+
+This will create  copy of the repository in `../destination` and run the test
+protocol in that copied directory.
+
+You can also provide a list of directories containing replacement input files
+or additional protocols:
+
+```bash
+./allatom \
+    -i ../alternative-inputs1 \
+    -i ../alternative-inputs2 \
+    -p ../additional-protocols \
+    ../destination
+```
+
+The `inputs` directory of the repository contains the input files shared by the
+test protocols. These files can be the force field definition, basic MDP
+parameters or some molecule topologies. As everything in the repository, the
+`inputs` directory is copied in the destination directory. When directories are
+provided with the `-i` option, they are overlayed on top of the `inputs`
+directory from the repository in the destination.
+
+The test protocols are stored in the `protocols` directory. The `-p` option
+allows to overlay user provided protocol directories.
