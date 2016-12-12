@@ -394,6 +394,8 @@ def user_cli():
     parser = argparse.ArgumentParser()
     parser.add_argument('--overlay', '-O', action='append', default=[])
     parser.add_argument('--ignore', '-I', action='append', default=[])
+    parser.add_argument('--inputs', '-i', action='append', default=[])
+    parser.add_argument('--protocol', '-p', action='append', default=[])
     parser.add_argument('--version', '-v', action='version', version=VERSION)
     parser.add_argument('destination')
     args = parser.parse_args()
@@ -402,13 +404,18 @@ def user_cli():
 
 def main():
     args = user_cli()
-    original_input = './'
+    original_input = SRC_DIR.parent
     user_input = args.overlay
     destination = args.destination
     ignore = set(['.git'] + args.ignore)
     overlay_directories(
-        [original_input] + user_input, destination, ignore=['.git', ]
+        [original_input] + user_input, destination, ignore=ignore
     )
+
+    inputs_dest_dir = pathlib.Path(destination) / pathlib.Path('inputs')
+    overlay_directories(args.inputs, str(inputs_dest_dir), ignore=ignore)
+    protocols_dest_dir = pathlib.Path(destination) / pathlib.Path('protocols')
+    overlay_directories(args.protocol, str(protocols_dest_dir), ignore=ignore)
 
     protocols_path = destination / pathlib.Path('protocols')
     for test in get_tests(protocols_path):
