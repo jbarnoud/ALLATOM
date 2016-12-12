@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import pathlib
 import collections
 import shutil
@@ -11,6 +12,7 @@ import io
 
 # The directory of this program source code
 SRC_DIR = pathlib.Path(__file__).parent.absolute()
+VERSION='0.0-dev'
 
 
 class ProtocolNotRunError(Exception):
@@ -386,14 +388,26 @@ def report_txt(root):
 
     print('{} protocols run over {} protocols available.'.format(nrun, ntotal))
     print('{} protocols succeeded.'.format(nsuccess))
-    
+
+
+def user_cli():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--overlay', '-O', action='append', default=[])
+    parser.add_argument('--ignore', '-I', action='append', default=[])
+    parser.add_argument('--version', '-v', action='version', version=VERSION)
+    parser.add_argument('destination')
+    args = parser.parse_args()
+    return args
+
 
 def main():
+    args = user_cli()
     original_input = './'
-    user_input = '../test_aa/overlay2/'
-    destination = '../test_aa/dest/'
+    user_input = args.overlay
+    destination = args.destination
+    ignore = set(['.git'] + args.ignore)
     overlay_directories(
-        [original_input, user_input], destination, ignore=['.git', ]
+        [original_input] + user_input, destination, ignore=['.git', ]
     )
 
     protocols_path = destination / pathlib.Path('protocols')
