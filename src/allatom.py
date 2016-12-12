@@ -7,15 +7,17 @@ import shutil
 import subprocess
 import traceback
 import configparser
-import io
 
 
 # The directory of this program source code
 SRC_DIR = pathlib.Path(__file__).parent.absolute()
-VERSION='0.0-dev'
+VERSION = '0.0-dev'
 
 
 class ProtocolNotRunError(Exception):
+    """
+    Raised when a protocol is expected to have run and has not.
+    """
     pass
 
 
@@ -189,12 +191,23 @@ class Protocol(object):
     @property
     def success_code_path(self):
         """
-        Path to the file that records the exit code
+        Path to the file that records the success code
         """
         return self.log_directory / pathlib.Path('SUCCESS_CODE')
 
     @property
     def success_code(self):
+        """
+        Success code for the protocol run.
+
+        A success code is an integer with a zero value if the protocol result
+        matches the reference, and a non-zero value if not.
+
+        The success code is read in the SUCCESS_CODE file produced by the
+        protocol script. If the file does not exist, either because the
+        protocol did not run or because the file was not generated,
+        then the property returns `None`.
+        """
         try:
             with open(str(self.success_code_path)) as infile:
                 code = int(infile.read())
@@ -204,6 +217,14 @@ class Protocol(object):
 
     @property
     def stdout(self):
+        """
+        Iterate over the lines of the standard output.
+
+        When the protocol script is executed, the standard output is captured
+        in a file. This property iterate over the lines of that file. The
+        file does not exist if the protocol did not run; then a
+        `ProtocolNotRunError` is raised.
+        """
         try:
             with open(str(self.stdout_path)) as infile:
                 yield from infile
@@ -212,6 +233,14 @@ class Protocol(object):
 
     @property
     def stderr(self):
+        """
+        Iterate over the lines of the standard error.
+
+        When the protocol script is executed, the standard error is captured
+        in a file. This property iterate over the lines of that file. The
+        file does not exist if the protocol did not run; then a
+        `ProtocolNotRunError` is raised.
+        """
         try:
             with open(str(self.stderr_path)) as infile:
                 yield from infile
@@ -244,7 +273,7 @@ def should_ignore(path, ignore):
     return False
 
 
-def overlay_directories(sources, destination, ignore=[]):
+def overlay_directories(sources, destination, ignore=()):
     """
     Copy an overlayed version of a collection of directories
 
@@ -350,7 +379,6 @@ def run_protocol(root, script, log_directory=None):
 def report_txt(root):
     failed = []
     errored = []
-    ntests = 0
     nrun = 0
     nsuccess = 0
     ntotal = 0
@@ -422,9 +450,9 @@ def main():
         print(test.name, end=' ')
         try:
             test.run()
-        except Exception as e:
+        except Exception as exception:
             print('[EXCEPTION]')
-            traceback.print_tb(e)
+            traceback.print_tb(exception)
         else:
             if test.exit_code != 0:
                 print('[ERROR]')
