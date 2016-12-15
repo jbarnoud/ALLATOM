@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import traceback
 import configparser
+import os
 
 
 # The directory of this program source code
@@ -22,9 +23,14 @@ class ProtocolNotRunError(Exception):
 
 
 class Protocol(object):
-    def __init__(self, root):
+    def __init__(self, root, main_root):
         self._set_root_and_meta(root)
         self._parse_meta(self._meta_path)
+        self.main_root = main_root
+        self.environment = {
+            'AA_INPUTS': str(self.inputs_directory.absolute()),
+            'AA_SUCCESS_CODE': str(self.success_code_path.absolute()),
+        }
         # Set empty values for private attributes
         self._exit_code = None
 
@@ -100,7 +106,8 @@ class Protocol(object):
             self._exit_code = run_protocol(
                 self.root,
                 self.script,
-                self.log_directory
+                self.log_directory,
+                environment=self.environment
             )
 
     @property
@@ -133,6 +140,13 @@ class Protocol(object):
         default value defined in `meta_default.ini` is returned.
         """
         return self._meta['Protocol']['script']
+
+    @property
+    def inputs_directory(self):
+        """
+        Path to the directory containing all the shared input files.
+        """
+        return self.main_root / pathlib.Path('inputs')
 
     @property
     def log_directory(self):
@@ -341,10 +355,11 @@ def get_tests(root):
     """
     Iterate over the Protocol instances for all the found protocols.
     """
-    return (Protocol(path) for path in pathlib.Path(root).glob('**/meta.ini'))
+    return (Protocol(path, root)
+            for path in pathlib.Path(root).glob('**/meta.ini'))
 
 
-def run_protocol(root, script, log_directory=None):
+def run_protocol(root, script, log_directory=None, environment={}):
     # Decide where to log data
     root = pathlib.Path(root)
     if log_directory is None:
@@ -356,6 +371,16 @@ def run_protocol(root, script, log_directory=None):
     elif not log_directory.is_dir():
         raise NotADirectoryError('Logging directory ({}) is not a directory.'
                                  .format(log_directory))
+    if not log_directory.exists():
+        log_directory.mkdir(parents=True)
+
+    # Set environment variables
+    protocol_environment = os.environ.copy()
+    protocol_environment['AA_LOG_DIR'] = str(log_directory)
+    protocol_environment['GMX'] = 'gmx '
+    protocol_environment['MDRUN'] = 'gmx mdrun '
+    protocol_environment.update(environment)
+
     # Actually run the protocol
     out_path = log_directory / pathlib.Path('stdout.log')
     err_path = log_directory / pathlib.Path('stderr.log')
@@ -366,7 +391,9 @@ def run_protocol(root, script, log_directory=None):
             script,
             stdout=stdout,
             stderr=stderr,
-            cwd=str(root.absolute()))
+            cwd=str(root.absolute()),
+            env=protocol_environment,
+        )
         exit_code = process.wait()
     # Log the exit code
     exit_code_file = log_directory / pathlib.Path('EXIT_CODE')
@@ -450,9 +477,9 @@ def main():
         print(test.name, end=' ')
         try:
             test.run()
-        except Exception as exception:
+        except Exception:
             print('[EXCEPTION]')
-            traceback.print_tb(exception)
+            traceback.print_exc()
         else:
             if test.exit_code != 0:
                 print('[ERROR]')
